@@ -31,7 +31,7 @@ variable "node_count" {
 variable "vm_size" {
   description = "Tamanho da VM para os nós do AKS"
   type        = string
-  default     = "Standard_DC2as_v5"
+  default     = "Standard_D2as_v6"
 }
 
 variable "environment" {

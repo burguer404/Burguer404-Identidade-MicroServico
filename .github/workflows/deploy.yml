@@ -60,7 +60,7 @@ jobs:
           echo "TF_VAR_resource_group_name=$AZURE_RESOURCE_GROUP" >> $GITHUB_ENV
           echo "TF_VAR_aks_cluster_name=$AZURE_AKS_CLUSTER" >> $GITHUB_ENV
           echo "TF_VAR_location=$AZURE_LOCATION" >> $GITHUB_ENV
-          echo "TF_VAR_vm_size=Standard_DC2as_v5" >> $GITHUB_ENV
+          echo "TF_VAR_vm_size=Standard_D2as_v6" >> $GITHUB_ENV
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
