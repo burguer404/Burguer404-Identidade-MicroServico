@@ -115,7 +115,11 @@ jobs:
 
       - name: Obter credenciais do AKS
         run: |
-          az aks get-credentials --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_AKS_CLUSTER --overwrite-existing --admin
+          if az aks show --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_AKS_CLUSTER >/dev/null 2>&1; then
+            az aks get-credentials --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_AKS_CLUSTER --overwrite-existing --admin
+          else
+            echo "AKS não encontrado, pulando obtenção de credenciais"
+          fi
 
       # Docker Build e Push
       - name: Setup Docker Buildx
@@ -138,13 +142,17 @@ jobs:
       # Aplicar YAMLs do Kubernetes
       - name: Atualizar deploys no AKS
         run: |
-          if [ -f "$K8S_DIR/backend-deployment.yaml" ]; then
-            sed -i "s|murilodev96/burguer404-pedidos:TAG_NOVA_VERSAO|$DOCKER_API_IMAGE:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
-            kubectl apply -f $K8S_DIR/backend-deployment.yaml
-          fi
-
-          for f in configmap.yaml secret.yaml db-deployment.yaml db-service.yaml mongodb-deployment.yaml mongodb-service.yaml metrics.yaml; do
-            if [ -f "$K8S_DIR/$f" ]; then
-              kubectl apply -f "$K8S_DIR/$f"
+          if kubectl cluster-info >/dev/null 2>&1; then
+            if [ -f "$K8S_DIR/backend-deployment.yaml" ]; then
+              sed -i "s|murilodev96/burguer404-pedidos:TAG_NOVA_VERSAO|$DOCKER_API_IMAGE:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
+              kubectl apply -f $K8S_DIR/backend-deployment.yaml
             fi
-          done
+
+            for f in configmap.yaml secret.yaml db-deployment.yaml db-service.yaml mongodb-deployment.yaml mongodb-service.yaml metrics.yaml; do
+              if [ -f "$K8S_DIR/$f" ]; then
+                kubectl apply -f "$K8S_DIR/$f"
+              fi
+            done
+          else
+            echo "Contexto Kubernetes indisponível, pulando kubectl apply"
+          fi
