@@ -1,91 +1,147 @@
-name: Deploy no AKS
+name: SonarQube, Build, Push e Deploy no AKS
 
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 env:
-  DOCKER_CATALOGO_IMAGE: mldev7/catalogo-service
+  DOCKER_API_IMAGE: murilodev96/burguer404-pedidos
+  TF_DIR: infra/terraform
   K8S_DIR: k8s
-  AZURE_RESOURCE_GROUP: rg-burguer404
-  AZURE_AKS_CLUSTER: aks-burguer404
-
-concurrency:
-  group: deploy
-  cancel-in-progress: false
+  AZURE_RESOURCE_GROUP: rg-pedidos
+  AZURE_AKS_CLUSTER: aks-pedidos
 
 jobs:
+
+  # ---------------------------------------------------
+  # JOB 1 — Analise SonarQube
+  # ---------------------------------------------------
+  # sonar:
+  #   runs-on: windows-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+
+  #     - name: Set up JDK 17
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         java-version: 17
+  #         distribution: 'zulu'
+
+  #     - name: Cache SonarQube Cloud packages
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ~\sonar\cache
+  #         key: ${{ runner.os }}-sonar
+  #         restore-keys: ${{ runner.os }}-sonar
+
+  #     - name: Cache SonarQube Cloud scanner
+  #       id: cache-sonar-scanner
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ${{ runner.temp }}\scanner
+  #         key: ${{ runner.os }}-sonar-scanner
+  #         restore-keys: ${{ runner.os }}-sonar-scanner
+
+  #     - name: Install SonarQube Cloud scanner
+  #       if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+  #       shell: powershell
+  #       run: |
+  #         New-Item -Path ${{ runner.temp }}\scanner -ItemType Directory
+  #         dotnet tool update dotnet-sonarscanner --tool-path ${{ runner.temp }}\scanner
+
+  #     - name: Run tests with coverage
+  #       shell: powershell
+  #       run: |
+  #         dotnet test --collect:"XPlat Code Coverage"
+
+  #     - name: Build and analyze
+  #       env:
+  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #       shell: powershell
+  #       run: |
+  #         ${{ runner.temp }}\scanner\dotnet-sonarscanner begin `
+  #           /k:"burguer404_Burguer404-Pedidos-MicroServico" `
+  #           /o:"burguer404-1" `
+  #           /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+  #           /d:sonar.cs.vstest.reportsPaths="**/*.trx" `
+  #           /d:sonar.cs.opencover.reportsPaths="**/coverage.cobertura.xml"
+
+  #         dotnet build
+
+  #         ${{ runner.temp }}\scanner\dotnet-sonarscanner end `
+  #           /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+
+  # ---------------------------------------------------
+  # JOB 2 — Build + Push + Deploy
+  # ---------------------------------------------------
   deploy:
-    name: Deploy no AKS
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    # needs: sonar
 
     steps:
-    - name: Checkout código
-      uses: actions/checkout@v3
+      - name: Checkout código
+        uses: actions/checkout@v3
 
-    - name: Login na Azure via Service Principal
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
 
-    - name: Obter credenciais do AKS
-      run: |
-        az aks get-credentials \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --name ${{ env.AZURE_AKS_CLUSTER }} \
-          --overwrite-existing --admin
+      - name: Login na Azure via Service Principal
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Instalar kubectl
-      uses: azure/setup-kubectl@v3
+      - name: Importar recursos existentes se necessário
+        working-directory: ${{ env.TF_DIR }}
+        run: bash import-resources.sh
 
-    - name: Aplicar ConfigMap e Secret
-      run: |
-        kubectl apply -f ${{ env.K8S_DIR }}/configmap.yaml
-        kubectl apply -f ${{ env.K8S_DIR }}/secret.yaml
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
 
-    - name: Aplicar Services (DB e MongoDB)
-      run: |
-        kubectl apply -f ${{ env.K8S_DIR }}/db-service.yaml
-        kubectl apply -f ${{ env.K8S_DIR }}/mongodb-service.yaml
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform plan
 
-    - name: Aplicar Deployments (DB e MongoDB)
-      run: |
-        kubectl apply -f ${{ env.K8S_DIR }}/db-deployment.yaml
-        kubectl apply -f ${{ env.K8S_DIR }}/mongodb-deployment.yaml
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -auto-approve
 
-    - name: Aguardar bancos de dados estarem prontos
-      run: |
-        kubectl wait --for=condition=available --timeout=300s deployment/db-deployment || true
-        kubectl wait --for=condition=available --timeout=300s deployment/mongodb-deployment || true
+      - name: Obter credenciais do AKS
+        run: |
+          az aks get-credentials --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_AKS_CLUSTER --overwrite-existing --admin
 
-    - name: Aplicar Service do Catálogo
-      run: kubectl apply -f ${{ env.K8S_DIR }}/catalogo-service.yaml
+      # Docker Build e Push
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Aplicar ou atualizar Deployment do Catálogo
-      run: |
-        # Aplica o deployment se não existir
-        kubectl apply -f ${{ env.K8S_DIR }}/catalogo-deployment.yaml || true
-        # Atualiza a imagem com a nova versão
-        kubectl set image deployment/catalogo-deployment \
-          catalogo-service=${{ env.DOCKER_CATALOGO_IMAGE }}:${{ github.sha }} \
-          || echo "Deployment não encontrado, será criado no próximo apply"
+      - name: Login no Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Aplicar HPA e Metrics
-      run: |
-        kubectl apply -f ${{ env.K8S_DIR }}/hpa-catalogo.yaml
-        kubectl apply -f ${{ env.K8S_DIR }}/metrics.yaml
+      - name: Build e Push da API
+        run: |
+          docker build -t $DOCKER_API_IMAGE:${{ github.sha }} -f Pedidos.Api/Dockerfile .
+          docker push $DOCKER_API_IMAGE:${{ github.sha }}
 
-    - name: Verificar rollout do deployment
-      run: |
-        kubectl rollout status deployment/catalogo-deployment --timeout=5m
+      # Aplicar YAMLs do Kubernetes
+      - name: Atualizar deploys no AKS
+        run: |
+          sed -i "s|murilodev96/burguer404-pedidos:TAG_NOVA_VERSAO|murilodev96/burguer404-pedidos:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
 
-    - name: Verificar pods
-      run: |
-        kubectl get pods -l app=catalogo
-        kubectl get pods -l app=catalogo-db
-        kubectl get pods -l app=catalogo-mongodb
-
-    - name: Verificar serviços
-      run: kubectl get services
+          kubectl apply -f $K8S_DIR/configmap.yaml
+          kubectl apply -f $K8S_DIR/secret.yaml
+          kubectl apply -f $K8S_DIR/db-deployment.yaml
+          kubectl apply -f $K8S_DIR/db-service.yaml
+          kubectl apply -f $K8S_DIR/backend-deployment.yaml
+          kubectl apply -f $K8S_DIR/backend-service.yaml
+          kubectl apply -f $K8S_DIR/hpa-backend.yaml
+          kubectl apply -f $K8S_DIR/metrics.yaml
