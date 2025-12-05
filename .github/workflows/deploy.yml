@@ -13,6 +13,7 @@ env:
   K8S_DIR: k8s
   AZURE_RESOURCE_GROUP: rg-identidade
   AZURE_AKS_CLUSTER: aks-burguer404
+  AZURE_LOCATION: eastus
   DOTNET_VERSION: '8.0.x'
 
 jobs:
@@ -58,7 +59,7 @@ jobs:
         run: |
           echo "TF_VAR_resource_group_name=$AZURE_RESOURCE_GROUP" >> $GITHUB_ENV
           echo "TF_VAR_aks_cluster_name=$AZURE_AKS_CLUSTER" >> $GITHUB_ENV
-          echo "TF_VAR_location=eastus" >> $GITHUB_ENV
+          echo "TF_VAR_location=$AZURE_LOCATION" >> $GITHUB_ENV
           echo "TF_VAR_vm_size=Standard_DC2as_v5" >> $GITHUB_ENV
 
       - name: Setup Terraform
@@ -71,9 +72,24 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Checar quota de vCPU na região
+        run: |
+          echo "Region: $AZURE_LOCATION"
+          # Exibe quotas na região para diagnóstico
+          az vm list-usage -l $AZURE_LOCATION -o table || true
+          # Tenta calcular vCPUs disponíveis; se não conseguir, segue sem falhar
+          read LIMIT CURRENT <<< $(az vm list-usage -l $AZURE_LOCATION --query "[?name.value=='Total Regional vCPUs'].[limit,currentValue]" -o tsv || echo "0 0")
+          AVAILABLE=$((LIMIT-CURRENT))
+          echo "Regional vCPU quota available: $AVAILABLE (limit=$LIMIT, used=$CURRENT)"
+          if [ "$AVAILABLE" -lt 2 ]; then
+            echo "Insufficient vCPU quota in $AZURE_LOCATION (available=$AVAILABLE, required>=2). Change AZURE_LOCATION or request quota increase."
+            exit 1
+          fi
+
       - name: Importar recursos existentes se necessário
         working-directory: ${{ env.TF_DIR }}
         run: bash import-resources.sh
+        continue-on-error: true
 
       - name: Terraform Init
         working-directory: ${{ env.TF_DIR }}
