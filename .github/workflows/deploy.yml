@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_API_IMAGE: murilodev96/burguer404-pedidos
+  DOCKER_API_IMAGE: murilodev96/burguer404-identidade
   TF_DIR: infra/terraform
   K8S_DIR: k8s
   AZURE_RESOURCE_GROUP: rg-pedidos
@@ -103,19 +103,19 @@ jobs:
 
       - name: Build e Push da API
         run: |
-          docker build -t $DOCKER_API_IMAGE:${{ github.sha }} -f Pedidos.Api/Dockerfile .
+          docker build -t $DOCKER_API_IMAGE:${{ github.sha }} -f Identidade.Api/Dockerfile .
           docker push $DOCKER_API_IMAGE:${{ github.sha }}
 
       # Aplicar YAMLs do Kubernetes
       - name: Atualizar deploys no AKS
         run: |
-          sed -i "s|murilodev96/burguer404-pedidos:TAG_NOVA_VERSAO|murilodev96/burguer404-pedidos:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
+          if [ -f "$K8S_DIR/backend-deployment.yaml" ]; then
+            sed -i "s|murilodev96/burguer404-pedidos:TAG_NOVA_VERSAO|$DOCKER_API_IMAGE:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
+            kubectl apply -f $K8S_DIR/backend-deployment.yaml
+          fi
 
-          kubectl apply -f $K8S_DIR/configmap.yaml
-          kubectl apply -f $K8S_DIR/secret.yaml
-          kubectl apply -f $K8S_DIR/db-deployment.yaml
-          kubectl apply -f $K8S_DIR/db-service.yaml
-          kubectl apply -f $K8S_DIR/backend-deployment.yaml
-          kubectl apply -f $K8S_DIR/backend-service.yaml
-          kubectl apply -f $K8S_DIR/hpa-backend.yaml
-          kubectl apply -f $K8S_DIR/metrics.yaml
+          for f in configmap.yaml secret.yaml db-deployment.yaml db-service.yaml mongodb-deployment.yaml mongodb-service.yaml metrics.yaml; do
+            if [ -f "$K8S_DIR/$f" ]; then
+              kubectl apply -f "$K8S_DIR/$f"
+            fi
+          done
