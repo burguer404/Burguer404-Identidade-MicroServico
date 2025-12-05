@@ -1,8 +1,8 @@
 #!/bin/bash
 
-RESOURCE_GROUP_NAME="rg-pedidos"
-CLUSTER_NAME="aks-pedidos"
-LOCATION="East US"
+RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP:-rg-burguer404}"
+CLUSTER_NAME="${AZURE_AKS_CLUSTER:-aks-burguer404}"
+LOCATION="${AZURE_LOCATION:-East US}"
 TF_DIR="$(dirname "$0")"
 
 # Verifica se o resource group existe

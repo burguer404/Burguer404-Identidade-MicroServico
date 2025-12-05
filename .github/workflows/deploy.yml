@@ -14,6 +14,9 @@ env:
   AZURE_RESOURCE_GROUP: rg-pedidos
   AZURE_AKS_CLUSTER: aks-pedidos
   DOTNET_VERSION: '8.0.x'
+  TF_VAR_resource_group_name: ${{ env.AZURE_RESOURCE_GROUP }}
+  TF_VAR_aks_cluster_name: ${{ env.AZURE_AKS_CLUSTER }}
+  TF_VAR_location: eastus
 
 jobs:
 
