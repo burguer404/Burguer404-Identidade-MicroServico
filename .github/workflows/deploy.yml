@@ -14,9 +14,6 @@ env:
   AZURE_RESOURCE_GROUP: rg-pedidos
   AZURE_AKS_CLUSTER: aks-pedidos
   DOTNET_VERSION: '8.0.x'
-  TF_VAR_resource_group_name: ${{ env.AZURE_RESOURCE_GROUP }}
-  TF_VAR_aks_cluster_name: ${{ env.AZURE_AKS_CLUSTER }}
-  TF_VAR_location: eastus
 
 jobs:
 
@@ -56,6 +53,12 @@ jobs:
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+
+      - name: Exportar variáveis TF_VAR
+        run: |
+          echo "TF_VAR_resource_group_name=$AZURE_RESOURCE_GROUP" >> $GITHUB_ENV
+          echo "TF_VAR_aks_cluster_name=$AZURE_AKS_CLUSTER" >> $GITHUB_ENV
+          echo "TF_VAR_location=eastus" >> $GITHUB_ENV
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
