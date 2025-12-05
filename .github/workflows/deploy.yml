@@ -13,7 +13,7 @@ env:
   K8S_DIR: k8s
   AZURE_RESOURCE_GROUP: rg-identidade
   AZURE_AKS_CLUSTER: aks-burguer404
-  AZURE_LOCATION: eastus
+  AZURE_LOCATION: brazilsouth
   DOTNET_VERSION: '8.0.x'
 
 jobs:
