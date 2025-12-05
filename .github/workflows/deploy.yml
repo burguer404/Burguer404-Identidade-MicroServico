@@ -77,8 +77,17 @@ jobs:
           echo "Region: $AZURE_LOCATION"
           # Exibe quotas na região para diagnóstico
           az vm list-usage -l $AZURE_LOCATION -o table || true
-          # Tenta calcular vCPUs disponíveis; se não conseguir, segue sem falhar
-          read LIMIT CURRENT <<< $(az vm list-usage -l $AZURE_LOCATION --query "[?name.value=='Total Regional vCPUs'].[limit,currentValue]" -o tsv || echo "0 0")
+          # Obtém valores de quota de forma resiliente (em inglês/pt e com/sem espaços)
+          LIMIT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.value, 'Regional vCPUs')].limit | [0]" -o tsv)
+          CURRENT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.value, 'Regional vCPUs')].currentValue | [0]" -o tsv)
+          if [ -z "$LIMIT" ] || [ -z "$CURRENT" ]; then
+            LIMIT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.localizedValue, 'vCPUs') && contains(name.localizedValue, 'region')].limit | [0]" -o tsv)
+            CURRENT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.localizedValue, 'vCPUs') && contains(name.localizedValue, 'region')].currentValue | [0]" -o tsv)
+          fi
+          if [ -z "$LIMIT" ] || [ -z "$CURRENT" ]; then
+            echo "Não foi possível ler quota regional de vCPU de forma confiável. Prosseguindo sem bloquear o deploy."
+            exit 0
+          fi
           AVAILABLE=$((LIMIT-CURRENT))
           echo "Regional vCPU quota available: $AVAILABLE (limit=$LIMIT, used=$CURRENT)"
           if [ "$AVAILABLE" -lt 2 ]; then
