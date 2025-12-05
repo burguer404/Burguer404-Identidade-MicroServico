@@ -11,8 +11,8 @@ env:
   DOCKER_API_IMAGE: murilodev96/burguer404-identidade
   TF_DIR: infra/terraform
   K8S_DIR: k8s
-  AZURE_RESOURCE_GROUP: rg-pedidos
-  AZURE_AKS_CLUSTER: aks-pedidos
+  AZURE_RESOURCE_GROUP: rg-identidade
+  AZURE_AKS_CLUSTER: aks-burguer404
   DOTNET_VERSION: '8.0.x'
 
 jobs:

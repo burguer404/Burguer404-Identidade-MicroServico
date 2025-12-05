@@ -8,7 +8,7 @@ resource "azurerm_resource_group" "rg" {
 
   tags = {
     Environment = var.environment
-    Project     = "Burguer404-Catalogo"
+    Project     = "Burguer404-Identidade"
     ManagedBy   = "Terraform"
   }
 }
@@ -31,7 +31,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   tags = {
     Environment = var.environment
-    Project     = "Burguer404-Catalogo"
+    Project     = "Burguer404-Identidade"
     ManagedBy   = "Terraform"
   }
 }

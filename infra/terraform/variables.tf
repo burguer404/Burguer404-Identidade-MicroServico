@@ -1,7 +1,7 @@
 variable "resource_group_name" {
   description = "Nome do Resource Group no Azure"
   type        = string
-  default     = "rg-burguer404"
+  default     = "rg-identidade"
 }
 
 variable "location" {

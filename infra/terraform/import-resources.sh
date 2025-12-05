@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP:-rg-burguer404}"
+RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP:-rg-identidade}"
 CLUSTER_NAME="${AZURE_AKS_CLUSTER:-aks-burguer404}"
 LOCATION="${AZURE_LOCATION:-East US}"
 TF_DIR="$(dirname "$0")"
