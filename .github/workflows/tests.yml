@@ -1,0 +1,60 @@
+name: CI - Tests
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Testes e Validação
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Restore dependências
+      run: dotnet restore
+
+    - name: Build projeto
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Executar testes com cobertura
+      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
+
+    - name: Localizar arquivo de cobertura
+      id: find_coverage
+      run: |
+        FILE=$(find . -name "coverage.cobertura.xml" | head -n 1)
+        echo "coveragefile=$FILE" >> $GITHUB_OUTPUT
+
+    - name: Instalar ReportGenerator
+      run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
+    - name: Gerar relatório de cobertura
+      run: |
+        reportgenerator \
+          -reports:"${{ steps.find_coverage.outputs.coveragefile }}" \
+          -targetdir:"coveragereport" \
+          -assemblyfilters:"+Identidade.Application" \
+          -classfilters:"+Identidade.Application.UseCases*" \
+          -reporttypes:"TextSummary"
+
+    - name: Mostrar % de Coverage no log
+      run: |
+        echo "---- Resultado da cobertura ----"
+        cat coveragereport/Summary.txt

@@ -1,10 +1,11 @@
-name: CI - Testes, Build, Push e Deploy
+name: SonarQube, Build, Push e Deploy no AKS
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["CI - Tests"]
+    types: [completed]
+    branches: [main]
+
   workflow_dispatch:
 
 env:
@@ -13,54 +14,15 @@ env:
   K8S_DIR: k8s
   AZURE_RESOURCE_GROUP: rg-identidade
   AZURE_AKS_CLUSTER: aks-burguer404
-  AZURE_LOCATION: brazilsouth
-  DOTNET_VERSION: '8.0.x'
 
 jobs:
-
-  # ---------------------------------------------------
-  # JOB 1 — Testes .NET
-  # ---------------------------------------------------
-  test:
+  infra:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Restore dependências
-        run: dotnet restore ./Identidade.Service.sln
-
-      - name: Build projeto
-        run: dotnet build ./Identidade.Service.sln --no-restore --configuration Release
-
-      - name: Executar testes
-        run: dotnet test ./Identidade.Service.sln --no-build --configuration Release --verbosity normal
-
-  # ---------------------------------------------------
-  # JOB 2 — Build + Push + Deploy
-  # ---------------------------------------------------
-  deploy:
-    runs-on: ubuntu-latest
-    needs: test
+    name: Provisionar Infraestrutura
 
     steps:
       - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Exportar variáveis TF_VAR
-        run: |
-          echo "TF_VAR_resource_group_name=$AZURE_RESOURCE_GROUP" >> $GITHUB_ENV
-          echo "TF_VAR_aks_cluster_name=$AZURE_AKS_CLUSTER" >> $GITHUB_ENV
-          echo "TF_VAR_location=$AZURE_LOCATION" >> $GITHUB_ENV
-          echo "TF_VAR_vm_size=Standard_D2as_v6" >> $GITHUB_ENV
+        uses: actions/checkout@v3
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -72,34 +34,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Checar quota de vCPU na região
-        continue-on-error: true
-        run: |
-          echo "Region: $AZURE_LOCATION"
-          # Exibe quotas na região para diagnóstico
-          az vm list-usage -l $AZURE_LOCATION -o table || true
-          # Obtém valores de quota de forma resiliente (em inglês/pt e com/sem espaços)
-          LIMIT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.value, 'Regional vCPUs')].limit | [0]" -o tsv)
-          CURRENT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.value, 'Regional vCPUs')].currentValue | [0]" -o tsv)
-          if [ -z "$LIMIT" ] || [ -z "$CURRENT" ]; then
-            LIMIT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.localizedValue, 'vCPUs') && contains(name.localizedValue, 'region')].limit | [0]" -o tsv)
-            CURRENT=$(az vm list-usage -l "$AZURE_LOCATION" --query "[?contains(name.localizedValue, 'vCPUs') && contains(name.localizedValue, 'region')].currentValue | [0]" -o tsv)
-          fi
-          if [ -z "$LIMIT" ] || [ -z "$CURRENT" ]; then
-            echo "Não foi possível ler quota regional de vCPU de forma confiável. Prosseguindo sem bloquear o deploy."
-            exit 0
-          fi
-          AVAILABLE=$((LIMIT-CURRENT))
-          echo "Regional vCPU quota available: $AVAILABLE (limit=$LIMIT, used=$CURRENT)"
-          if [ "$AVAILABLE" -lt 2 ]; then
-            echo "::warning::Insufficient vCPU quota in $AZURE_LOCATION (available=$AVAILABLE, required>=2). Continuando; a criação do AKS pode falhar."
-            exit 0
-          fi
-
       - name: Importar recursos existentes se necessário
         working-directory: ${{ env.TF_DIR }}
         run: bash import-resources.sh
-        continue-on-error: true
 
       - name: Terraform Init
         working-directory: ${{ env.TF_DIR }}
@@ -113,46 +50,67 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: terraform apply -auto-approve
 
-      - name: Obter credenciais do AKS
+      - name: Aguardar o Cluster AKS ficar pronto
         run: |
-          if az aks show --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_AKS_CLUSTER >/dev/null 2>&1; then
-            az aks get-credentials --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_AKS_CLUSTER --overwrite-existing --admin
-          else
-            echo "AKS não encontrado, pulando obtenção de credenciais"
-          fi
+          az aks wait \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_AKS_CLUSTER }} \
+            --created \
+            --timeout 180
 
-      # Docker Build e Push
+  build:
+    runs-on: ubuntu-latest
+    name: Build e Push da Imagem
+    needs: infra
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
       - name: Setup Docker Buildx
-        if: ${{ always() }}
         uses: docker/setup-buildx-action@v2
 
       - name: Login no Docker Hub
-        if: ${{ always() }}
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build e Push da API
-        if: ${{ always() }}
         run: |
           docker build -t $DOCKER_API_IMAGE:${{ github.sha }} -f Identidade.Api/Dockerfile .
           docker push $DOCKER_API_IMAGE:${{ github.sha }}
 
-      # Aplicar YAMLs do Kubernetes
+  deploy:
+    runs-on: ubuntu-latest
+    name: Atualizar Deploy no AKS
+    needs: build
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Login na Azure via Service Principal
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Obter credenciais do AKS
+        run: |
+          az aks get-credentials \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --name $AZURE_AKS_CLUSTER \
+            --overwrite-existing --admin
+
       - name: Atualizar deploys no AKS
         run: |
-          if kubectl cluster-info >/dev/null 2>&1; then
-            if [ -f "$K8S_DIR/backend-deployment.yaml" ]; then
-              sed -i "s|murilodev96/burguer404-pedidos:TAG_NOVA_VERSAO|$DOCKER_API_IMAGE:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
-              kubectl apply -f $K8S_DIR/backend-deployment.yaml
-            fi
+          sed -i "s|murilodev96/burguer404-identidade:TAG_NOVA_VERSAO|murilodev96/burguer404-identidade:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
 
-            for f in configmap.yaml secret.yaml db-deployment.yaml db-service.yaml mongodb-deployment.yaml mongodb-service.yaml metrics.yaml; do
-              if [ -f "$K8S_DIR/$f" ]; then
-                kubectl apply -f "$K8S_DIR/$f"
-              fi
-            done
-          else
-            echo "Contexto Kubernetes indisponível, pulando kubectl apply"
-          fi
+          kubectl apply -f $K8S_DIR/configmap.yaml
+          kubectl apply -f $K8S_DIR/secret.yaml
+          kubectl apply -f $K8S_DIR/db-deployment.yaml
+          kubectl apply -f $K8S_DIR/db-service.yaml
+          kubectl apply -f $K8S_DIR/backend-deployment.yaml
+          kubectl apply -f $K8S_DIR/backend-service.yaml
+          kubectl apply -f $K8S_DIR/hpa-backend.yaml
+          kubectl apply -f $K8S_DIR/metrics.yaml

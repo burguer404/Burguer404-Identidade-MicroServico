@@ -5,6 +5,6 @@ metadata:
 data:
   ACCEPT_EULA: "Y"
   ASPNETCORE_ENVIRONMENT: "Development"
-  DB_HOST: "db-catalogo-service"
+  DB_HOST: "db-burguer404-service"
   MONGO_HOST: "mongodb-catalogo-service"
 
