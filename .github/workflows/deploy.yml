@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_API_IMAGE: murilodev96/burguer404-identidade
+  DOCKER_API_IMAGE: cuminogustavo/burguer404-identidade
   TF_DIR: infra/terraform
   K8S_DIR: k8s
   AZURE_RESOURCE_GROUP: rg-identidade
@@ -124,7 +124,7 @@ jobs:
 
       - name: Atualizar deploys no AKS
         run: |
-          sed -i "s|murilodev96/burguer404-identidade:TAG_NOVA_VERSAO|murilodev96/burguer404-identidade:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
+          sed -i "s|cuminogustavo/burguer404-identidade:TAG_NOVA_VERSAO|cuminogustavo/burguer404-identidade:${{ github.sha }}|g" $K8S_DIR/backend-deployment.yaml
 
           kubectl apply -f $K8S_DIR/configmap.yaml
           kubectl apply -f $K8S_DIR/secret.yaml
