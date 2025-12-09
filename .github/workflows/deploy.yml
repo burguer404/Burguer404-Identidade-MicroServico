@@ -75,11 +75,31 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: docker.io
 
-      - name: Build e Push da API
+      - name: Build & Push (build-push-action)
+        id: build_push_action
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Identidade.Api/Dockerfile
+          push: true
+          provenance: false
+          tags: ${{ env.DOCKER_API_IMAGE }}:${{ github.sha }}
+
+      - name: Fallback manual Build & Push
+        if: ${{ steps.build_push_action.outcome != 'success' }}
         run: |
-          docker build -t $DOCKER_API_IMAGE:${{ github.sha }} -f Identidade.Api/Dockerfile .
-          docker push $DOCKER_API_IMAGE:${{ github.sha }}
+          set -euxo pipefail
+          docker build --progress=plain -t $DOCKER_API_IMAGE:${{ github.sha }} -f Identidade.Api/Dockerfile .
+          # Tenta push com até 3 tentativas
+          n=0
+          until [ "$n" -ge 3 ]; do
+            docker push $DOCKER_API_IMAGE:${{ github.sha }} && break
+            n=$((n+1))
+            echo "Push falhou, tentando novamente ($n/3)..."
+            sleep 3
+          done
 
   deploy:
     runs-on: ubuntu-latest
