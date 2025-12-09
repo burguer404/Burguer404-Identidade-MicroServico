@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: burguer404-identidade
-        image: murilodev96/burguer404-identidade:TAG_NOVA_VERSAO
+        image: cuminogustavo/burguer404-identidade:TAG_NOVA_VERSAO
         ports:
         - containerPort: 80
         env:
