@@ -6,11 +6,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: Burguer404
+      app: catalogo-db
   template:
     metadata:
       labels:
-        app: Burguer404
+        app: catalogo-db
     spec:
       containers:
       - name: sqlserver

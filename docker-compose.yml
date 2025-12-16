@@ -14,6 +14,18 @@ services:
     networks:
       - catalogo-network
 
+  mongodb:
+    image: mongo:7.0
+    container_name: catalogo-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: CatalogoDB
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - catalogo-network
+
   catalogo-service:
     build:
       context: .
@@ -25,13 +37,16 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5003
       - ConnectionStrings__CatalogoConnection=Server=sqlserver;Database=CatalogoDB;User Id=sa;Password=Catalogo404@2025;TrustServerCertificate=True;
+      - ConnectionStrings__MongoConnection=mongodb://mongodb:27017
     depends_on:
       - sqlserver
+      - mongodb
     networks:
       - catalogo-network
 
 volumes:
   sqlserver_data:
+  mongodb_data:
 
 networks:
   catalogo-network:
