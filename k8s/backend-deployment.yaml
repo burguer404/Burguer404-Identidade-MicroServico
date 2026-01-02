@@ -16,7 +16,7 @@ spec:
       - name: burguer404-identidade
         image: cuminogustavo/burguer404-identidade:TAG_NOVA_VERSAO
         ports:
-        - containerPort: 80
+        - containerPort: 5004
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
