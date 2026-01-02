@@ -37,7 +37,6 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5003
       - ConnectionStrings__CatalogoConnection=Server=sqlserver;Database=CatalogoDB;User Id=sa;Password=Catalogo404@2025;TrustServerCertificate=True;
-      - ConnectionStrings__MongoConnection=mongodb://mongodb:27017
     depends_on:
       - sqlserver
       - mongodb

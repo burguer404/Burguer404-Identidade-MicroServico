@@ -17,7 +17,7 @@ builder.Services.AddSwaggerGen();
 
 // Database
 builder.Services.AddDbContext<IdentidadeContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("IdentidadeConnection")));
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(Program));

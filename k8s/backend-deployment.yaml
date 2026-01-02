@@ -20,11 +20,11 @@ spec:
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
-        - name: ConnectionStrings__DefaultConnection
+        - name: ConnectionStrings__IdentidadeConnection
           valueFrom:
             secretKeyRef:
               name: app-secret
-              key: ConnectionStrings__DefaultConnection
+              key: ConnectionStrings__IdentidadeConnection
         resources:
           requests:
             cpu: "100m"
