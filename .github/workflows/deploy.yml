@@ -114,8 +114,6 @@ jobs:
 
           kubectl apply -f $K8S_DIR/configmap.yaml
           kubectl apply -f $K8S_DIR/secret.yaml
-          kubectl apply -f $K8S_DIR/db-deployment.yaml
-          kubectl apply -f $K8S_DIR/db-service.yaml
           kubectl apply -f $K8S_DIR/backend-deployment.yaml
           kubectl apply -f $K8S_DIR/backend-service.yaml
           kubectl apply -f $K8S_DIR/hpa-backend.yaml
