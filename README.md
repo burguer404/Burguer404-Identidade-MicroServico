@@ -2,6 +2,7 @@
 
 Microserviço responsável pela autenticação e gestão de clientes da lanchonete **Burguer404**. Gerencia o cadastro de usuários, identificação (incluindo acesso anônimo) e emissão de tokens JWT.
 
+
 ## Tecnologias Utilizadas
 
 - **.NET 8.0**: Framework principal.
