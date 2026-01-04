@@ -12,7 +12,7 @@ namespace Identidade.Infrastructure.Maps
             builder.HasKey(e => e.Id);
             builder.Property(e => e.Nome).IsRequired().HasMaxLength(100);
             builder.Property(e => e.Email).IsRequired().HasMaxLength(100);
-            builder.Property(e => e.Cpf).IsRequired().HasMaxLength(11);
+            builder.Property(e => e.Cpf).IsRequired().HasMaxLength(14);
             builder.HasIndex(e => e.Email).IsUnique();
             builder.HasIndex(e => e.Cpf).IsUnique();
             builder.Property(e => e.DataCriacao).IsRequired();

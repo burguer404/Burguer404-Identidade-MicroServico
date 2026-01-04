@@ -23,7 +23,7 @@ namespace Identidade.Infrastructure.ContextDb
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.Cpf).IsRequired().HasMaxLength(11);
+                entity.Property(e => e.Cpf).IsRequired().HasMaxLength(14);
                 entity.HasIndex(e => e.Email).IsUnique();
                 entity.HasIndex(e => e.Cpf).IsUnique();
                 entity.HasOne(e => e.PerfilCliente)
@@ -48,8 +48,13 @@ namespace Identidade.Infrastructure.ContextDb
 
             // Seed data
             modelBuilder.Entity<PerfilClienteEntity>().HasData(
-                new PerfilClienteEntity { Id = 1, Descricao = "Cliente Padrão", Ativo = true },
-                new PerfilClienteEntity { Id = 2, Descricao = "Cliente VIP", Ativo = true }
+                new PerfilClienteEntity { Id = 1, Descricao = "Administrador", Ativo = true },
+                new PerfilClienteEntity { Id = 2, Descricao = "Cliente", Ativo = true }
+            );
+
+            modelBuilder.Entity<ClienteEntity>().HasData(
+                new ClienteEntity { Id = 1, Nome = "admin", Email = "11111111111@hotmail.com", Cpf = "111.111.111-11", PerfilClienteId = 1, DataCriacao = DateTime.Now, Status = true },
+                new ClienteEntity { Id = 2, Nome = "Cliente", Email = "12345678910@hotmail.com", Cpf = "123.456.789-10", PerfilClienteId = 1, DataCriacao = DateTime.Now, Status = true }
             );
         }
     }

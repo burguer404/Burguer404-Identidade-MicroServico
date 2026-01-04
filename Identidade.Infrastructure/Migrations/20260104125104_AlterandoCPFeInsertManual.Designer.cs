@@ -4,6 +4,7 @@ using Identidade.Infrastructure.ContextDb;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Identidade.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentidadeContext))]
-    partial class IdentidadeContextModelSnapshot : ModelSnapshot
+    [Migration("20260104125104_AlterandoCPFeInsertManual")]
+    partial class AlterandoCPFeInsertManual
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
