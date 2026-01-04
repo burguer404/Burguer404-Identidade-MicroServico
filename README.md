@@ -85,3 +85,6 @@ O projeto segue a **Clean Architecture**:
 ## Infraestrutura e Deploy
 
 O pipeline de CI/CD (GitHub Actions) executa testes, provisiona a infraestrutura Azure via Terraform e realiza o deploy no cluster Kubernetes (AKS).
+
+## Sonar Qube
+https://sonarcloud.io/project/overview?id=burguer404_Burguer404-Identidade-MicroServico
