@@ -10,51 +10,52 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
-    name: Testes e Validação
-    runs-on: ubuntu-latest
+    name: Testes - Coverage - SonarCloud
+    runs-on: windows-latest
+
     steps:
-    - name: Checkout código
-      uses: actions/checkout@v3
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Restore dependências
-      run: dotnet restore
+      - name: Install SonarScanner
+        run: dotnet tool install --global dotnet-sonarscanner
 
-    - name: Build projeto
-      run: dotnet build --no-restore --configuration Release
+      - name: Sonar begin
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          dotnet sonarscanner begin
+          /k:"burguer404_Burguer404-Identidade-MicroServico"
+          /o:"burguer404-1"
+          /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml"
+          /d:sonar.newCode.referenceBranch=main
+          /d:sonar.qualitygate.wait=true
 
-    - name: Executar testes com cobertura
-      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
+      - name: Restore
+        run: dotnet restore
 
-    - name: Localizar arquivo de cobertura
-      id: find_coverage
-      run: |
-        FILE=$(find . -name "coverage.cobertura.xml" | head -n 1)
-        echo "coveragefile=$FILE" >> $GITHUB_OUTPUT
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
 
-    - name: Instalar ReportGenerator
-      run: dotnet tool install -g dotnet-reportgenerator-globaltool
+      - name: Test with coverage
+        run: >
+          dotnet test
+          --no-build
+          --configuration Release
+          --collect:"XPlat Code Coverage"
+          --filter "FullyQualifiedName~Identidade.Tests.UseCases"
+          /p:Include="[Identidade.Application.UseCases]*"                
 
-    - name: Gerar relatório de cobertura
-      run: |
-        reportgenerator \
-          -reports:"${{ steps.find_coverage.outputs.coveragefile }}" \
-          -targetdir:"coveragereport" \
-          -assemblyfilters:"+Identidade.Application" \
-          -classfilters:"+Identidade.Application.UseCases*" \
-          -reporttypes:"TextSummary"
-
-    - name: Mostrar % de Coverage no log
-      run: |
-        echo "---- Resultado da cobertura ----"
-        cat coveragereport/Summary.txt
+      - name: Sonar end
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet sonarscanner end
